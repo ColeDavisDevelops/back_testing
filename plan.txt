@@ -1,0 +1,16 @@
+- data input option
+
+- strategy execution
+  - iterate over the data
+    - 
+
+- visualize 
+  
+
+=================
+- get atrtrailing stop signals, off input data
+
+- class ATR()
+  - init(period, data)
+
+
