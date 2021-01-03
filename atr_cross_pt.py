@@ -1,7 +1,9 @@
+
 from account import Account 
 import datetime as dt
 
-class AtrCross(Account):
+class AtrCrossPt(Account):
+
   def __init__(self, data, balance, period):
     super().__init__(balance)
     self.data = data  
@@ -11,9 +13,9 @@ class AtrCross(Account):
       'low': [],
       'close': [],
       'date': [],
-      'atrts': [],
       'stop_loss': [], 
-      'balance': []
+      'balance': [],
+      'account_value': []
     }
     self.period = period
   
@@ -68,6 +70,8 @@ class AtrCross(Account):
       self.format_data['close'].append(candle["close"])
       self.format_data['date'].append(dt.datetime.fromtimestamp(candle["datetime"]/1000.0).strftime('%c'))
 
+      self.format_data['account_value'].append(self.account_value(candle['close']))
+
       # if not day one
       if counter != 0: 
         # add atr
@@ -75,42 +79,58 @@ class AtrCross(Account):
         true_ranges.append(tr)
 
         if len(true_ranges) > 10: 
-          self.format_data['atrts'].append(self.exponential_average(true_ranges, self.period)[-1])
           order_object = {'price': candle['close'], 'date': self.format_data['date'][-1]}
 
           if (candle["close"] < self.format_data["stop_loss"][-1]) and curr_trend == True:
             # trend changes down stop gets reset
             curr_trend = False
-            self.format_data["stop_loss"].append(candle["close"] + self.exponential_average(true_ranges, self.period)[-1])
-            stop_size = self.exponential_average(true_ranges, self.period)[-1]
+            self.format_data["stop_loss"].append(candle["close"] + self.exponential_average(true_ranges, self.period)[-1] * 3)
+            stop_size = self.exponential_average(true_ranges, self.period)[-1] * 3
 
             if self.position['shares'] > 0:
               self.sell(order_object)
 
+
+            order_object["txn_type"] = "SELL"
             self.sell(order_object)
+
             self.format_data['balance'].append(self.balance)
             continue
 
           if (candle["close"] > self.format_data["stop_loss"][-1]) and curr_trend != True:
             curr_trend = True
-            self.format_data["stop_loss"].append(candle["close"] - self.exponential_average(true_ranges, self.period)[-1])
-            stop_size = self.exponential_average(true_ranges, self.period)[-1]
+            self.format_data["stop_loss"].append(candle["close"] - self.exponential_average(true_ranges, self.period)[-1] * 3)
+            stop_size = self.exponential_average(true_ranges, self.period)[-1] * 3
 
             if self.position['shares'] < 0:
               self.buy(order_object)
 
+            order_object["txn_type"] = "BUY"
             self.buy(order_object)
             self.format_data['balance'].append(self.balance)
             continue
     
           if curr_trend: 
+
+            if self.position['shares'] > 0:
+              if self.orders[-1]['price'] + stop_size <= candle['close']:
+                order_object["txn_type"] = "SELL"
+                self.sell(order_object)
+
             # trailing stop = close - stop_size
             if (candle["close"] - stop_size) > self.format_data["stop_loss"][-1]:
               self.format_data["stop_loss"].append(candle["close"] - stop_size)
             else:
               self.format_data["stop_loss"].append(self.format_data["stop_loss"][-1])
 
-          else: 
+          else:
+
+            if self.position['shares'] < 0:
+              if self.orders[-1]['price'] - stop_size >= candle['close']:
+                order_object["txn_type"] = "BUY"
+                self.buy(order_object)
+
+
             if (candle["close"] + stop_size) < self.format_data["stop_loss"][-1]:
               self.format_data["stop_loss"].append(candle["close"] + stop_size)
             else:
@@ -118,11 +138,9 @@ class AtrCross(Account):
             # closing price + 3 x atr
 
         else: 
-          self.format_data['atrts'].append(candle['high'] - candle['low'])     
           self.format_data['stop_loss'].append(0)
 
       else: 
-        self.format_data['atrts'].append(candle['high'] - candle['low'])
         self.format_data['stop_loss'].append(0)
   
       self.format_data['balance'].append(self.balance)

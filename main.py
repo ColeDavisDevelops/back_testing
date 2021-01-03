@@ -9,6 +9,8 @@ from plotly.subplots import make_subplots
 
 
 from atr_cross import AtrCross
+from atr_cross_pt import AtrCrossPt 
+from random_strat import RandomST
 
 # fetch data 
 endpoint = 'https://api.tdameritrade.com/v1/marketdata/{stock_ticker}/pricehistory?periodType={periodType}&period={period}&frequencyType={frequencyType}&frequency={frequency}'
@@ -17,20 +19,41 @@ params = {
 }
 
 full_url = endpoint.format(stock_ticker='SPY',periodType='year',period=2,frequencyType='daily',frequency=1)
+full_url_1 = endpoint.format(stock_ticker='SPY',periodType='month',period=6,frequencyType='daily',frequency=1)
 
 page = requests.get(url=full_url,
+                    params=params)
+page2 = requests.get(url=full_url_1,
                     params=params)
 # content = json.loads(page.content)
 
 data = page.json()
 
+data2 = page2.json()
+
 #*************************************************
 
 strat = AtrCross(data, 1000, 9)
+strat2P1 = AtrCrossPt(data, 1000, 9)
+strat2P2 = AtrCrossPt(data2, 1000, 9)
+# strat3 = RandomST(data, 1000)
 
-strat.execute_strategy()
 
-df = pd.DataFrame(data=strat.format_data)
+strat2P1.execute_strategy()
+print("*******************************")
+print("*******************************")
+print("*******************************")
+strat2P2.execute_strategy()
+# print("*******************************")
+# print("*******************************")
+# print("*******************************")
+# strat3.execute_strategy()
+
+print(strat2P1.format_data["stop_loss"][-1])
+print(strat2P2.format_data["stop_loss"][-1])
+
+
+df = pd.DataFrame(data=strat2P1.format_data)
 
 df = df[12:]
 
@@ -52,13 +75,6 @@ fig.add_trace(
   )
 )
 
-
-# fig = go.Figure(data=[go.Candlestick(x=df['date'],
-#                 open=df['open'],
-#                 high=df['high'],
-#                 low=df['low'],
-#                 close=df['close'])])
-
 fig.add_trace(
     go.Scatter(
         x=df['date'],
@@ -68,7 +84,7 @@ fig.add_trace(
 fig.append_trace(
     go.Scatter(
       x=df['date'],
-      y=df['balance']
+      y=df['account_value']
     ), row=2, col=1)  
 # print(df)
 # print(strat.balance_history)
